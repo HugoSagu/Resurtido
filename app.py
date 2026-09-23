@@ -13,7 +13,7 @@ st.set_page_config(
 
 
 # -----------------------------------------------------------------------------
-# 2. GENERACIÓN DE DATOS DUMMIES (MOCKUP)
+# 2. GENERACIÓN DE DATOS DUMMIES (MOCKUP SIN COSTOS)
 # -----------------------------------------------------------------------------
 @st.cache_data
 def generar_datos_dummies():
@@ -21,38 +21,35 @@ def generar_datos_dummies():
     proveedores = ["COCA COLA", "BIMBO", "PEPSICO", "DULCES DE LA ROSA"]
 
     catalogo_mock = [
-        ("COCA COLA", "1001", "COCA COLA NR 600ML", 24, 15.50),
-        ("COCA COLA", "1002", "COCA COLA SIN AZUCAR 600ML", 24, 14.00),
-        ("COCA COLA", "1003", "FANTA NARANJA 600ML", 24, 13.50),
-        ("BIMBO", "2001", "PAN BLANCO GRANDE", 12, 38.00),
-        ("BIMBO", "2002", "DONAS AZUCARADAS 4PZ", 16, 22.50),
-        ("BIMBO", "2003", "NITO 62G", 20, 18.00),
-        ("PEPSICO", "3001", "SABRITAS SAL 160G", 14, 42.00),
-        ("PEPSICO", "3002", "DORITOS NACHO 150G", 14, 40.00),
-        ("PEPSICO", "3003", "EMPERADOR CHOCOLATE 109G", 16, 19.50),
-        ("DULCES DE LA ROSA", "4001", "MAZAPAN 12PZ", 20, 45.00),
-        ("DULCES DE LA ROSA", "4002", "PULPARINDO ORIGINAL 20PZ", 25, 55.00),
+        ("COCA COLA", "1001", "COCA COLA NR 600ML", 24),
+        ("COCA COLA", "1002", "COCA COLA SIN AZUCAR 600ML", 24),
+        ("COCA COLA", "1003", "FANTA NARANJA 600ML", 24),
+        ("BIMBO", "2001", "PAN BLANCO GRANDE", 12),
+        ("BIMBO", "2002", "DONAS AZUCARADAS 4PZ", 16),
+        ("BIMBO", "2003", "NITO 62G", 20),
+        ("PEPSICO", "3001", "SABRITAS SAL 160G", 14),
+        ("PEPSICO", "3002", "DORITOS NACHO 150G", 14),
+        ("PEPSICO", "3003", "EMPERADOR CHOCOLATE 109G", 16),
+        ("DULCES DE LA ROSA", "4001", "MAZAPAN 12PZ", 20),
+        ("DULCES DE LA ROSA", "4002", "PULPARINDO ORIGINAL 20PZ", 25),
     ]
 
     filas = []
-    np.random.seed(42)  # Para mantener consistencia en las corridas
+    np.random.seed(42)
 
     for tienda in tiendas:
-        for prov, cod, desc, pxc, costo in catalogo_mock:
+        for prov, cod, desc, pxc in catalogo_mock:
             existencia = int(np.random.choice([0, 2, 5, 12, 25, 40]))
             min_inv = int(np.random.choice([5, 8, 10]))
             max_inv = min_inv + int(np.random.choice([15, 20, 30]))
 
-            # Necesidad Neta
             necesidad = max(0, max_inv - existencia)
 
-            # Sugerido solo si la existencia es menor o igual al MIN
             if existencia <= min_inv:
                 cajas_sug = int(np.ceil(necesidad / pxc))
             else:
                 cajas_sug = 0
 
-            # Estado del inventario
             if existencia == 0 and min_inv > 0:
                 estado = "🔴 QUIEBRE DE STOCK"
             elif existencia <= min_inv:
@@ -72,7 +69,6 @@ def generar_datos_dummies():
                 "MIN": min_inv,
                 "MAX": max_inv,
                 "Cajas_Sugeridas": cajas_sug,
-                "Costo": costo,
                 "Estado_Inventario": estado,
             })
 
@@ -102,31 +98,25 @@ proveedor_sel = st.sidebar.selectbox(
     options=df_tienda["Proveedor"].unique(),
 )
 
-# Filtrar dataset final
 df_filtrado = df_tienda[df_tienda["Proveedor"] == proveedor_sel].copy()
 
 # -----------------------------------------------------------------------------
 # 4. ENCABEZADO Y KPIS
 # -----------------------------------------------------------------------------
-st.title("📋 Sugerido de Compra a Proveedor Directo")
+st.title("📋 Sugerido de Recepción a Proveedor Directo")
 st.subheader(f"Tienda: {tienda_sel} | Proveedor: {proveedor_sel}")
 
-# Cálculos dinámicos preliminares
+skus_a_resurtir = int((df_filtrado["Cajas_Sugeridas"] > 0).sum())
 cajas_iniciales = int(df_filtrado["Cajas_Sugeridas"].sum())
-costo_inicial = (
-    df_filtrado["Cajas_Sugeridas"]
-    * df_filtrado["Piezas_Por_Caja"]
-    * df_filtrado["Costo"]
-).sum()
 quiebres_iniciales = int(
     (df_filtrado["Estado_Inventario"] == "🔴 QUIEBRE DE STOCK").sum()
 )
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("SKUs del Proveedor", len(df_filtrado))
-col2.metric("SKUs en Quiebre", quiebres_iniciales, delta_color="inverse")
-col3.metric("Total Cajas Sugeridas", cajas_iniciales)
-col4.metric("Inversión Estimada (Costo)", f"${costo_inicial:,.2f}")
+col2.metric("SKUs a Resurtir", skus_a_resurtir)
+col3.metric("SKUs en Quiebre", quiebres_iniciales, delta_color="inverse")
+col4.metric("Total Cajas Sugeridas", cajas_iniciales)
 
 st.markdown("---")
 
@@ -135,10 +125,9 @@ st.markdown("---")
 # -----------------------------------------------------------------------------
 st.markdown("### 🛒 Detalle de Pedido por SKU")
 st.caption(
-    "Puedes ajustar manualmente la columna **'Cajas_A_Pedir'** si el vendedor del proveedor negoció una cantidad distinta."
+    "Revisa las existencias y ajusta la columna **'Cajas_A_Pedir'** según el físico pactado con el vendedor."
 )
 
-# Preparar columnas para la interfaz del encargado
 df_interfaz = df_filtrado[[
     "Código",
     "Descripción",
@@ -148,13 +137,10 @@ df_interfaz = df_filtrado[[
     "MAX",
     "Cajas_Sugeridas",
     "Estado_Inventario",
-    "Costo",
 ]].copy()
 
-# Columna editable prellenada con el sugerido del sistema
 df_interfaz["Cajas_A_Pedir"] = df_interfaz["Cajas_Sugeridas"]
 
-# Configuración de edición de columnas
 df_editado = st.data_editor(
     df_interfaz,
     column_config={
@@ -176,12 +162,9 @@ df_editado = st.data_editor(
         "Estado_Inventario": st.column_config.TextColumn(
             "Estado", disabled=True
         ),
-        "Costo": st.column_config.NumberColumn(
-            "Costo Unitario", format="$%.2f", disabled=True
-        ),
         "Cajas_A_Pedir": st.column_config.NumberColumn(
             "Cajas Autorizadas",
-            help="Modifica las cajas a recibir si el vendedor ajustó el pedido",
+            help="Modifica las cajas a recibir si hubo ajuste en mostrador",
             min_value=0,
             step=1,
         ),
@@ -193,23 +176,18 @@ df_editado = st.data_editor(
 # -----------------------------------------------------------------------------
 # 6. RECALCULO Y BOTÓN DE EXPORTACIÓN
 # -----------------------------------------------------------------------------
-# Calcular totales finales tras edición manual
 df_editado["Piezas_Totales"] = (
     df_editado["Cajas_A_Pedir"] * df_editado["Piezas_Por_Caja"]
 )
-df_editado["Subtotal_Costo"] = (
-    df_editado["Piezas_Totales"] * df_editado["Costo"]
-)
 
 total_cajas_final = int(df_editado["Cajas_A_Pedir"].sum())
-total_inversion_final = df_editado["Subtotal_Costo"].sum()
+total_piezas_final = int(df_editado["Piezas_Totales"].sum())
 
 st.markdown("### 📄 Resumen de la Orden Autorizada")
-c_res1, c_res2, c_res3 = st.columns([2, 2, 2])
+c_res1, c_res2, c_res3 = st.columns([2, 2, 3])
 c_res1.metric("Cajas Autorizadas Finales", total_cajas_final)
-c_res2.metric("Monto Total Autorizado", f"${total_inversion_final:,.2f}")
+c_res2.metric("Piezas Totales Autorizadas", total_piezas_final)
 
-# Convertir la orden a CSV para descarga en tienda
 csv_orden = df_editado[[
     "Código",
     "Descripción",
@@ -217,7 +195,6 @@ csv_orden = df_editado[[
     "Existencia",
     "Cajas_A_Pedir",
     "Piezas_Totales",
-    "Subtotal_Costo",
 ]].to_csv(index=False)
 
 c_res3.download_button(
