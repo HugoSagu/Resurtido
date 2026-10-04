@@ -1,5 +1,5 @@
 """
-Sistema de Reabastecimiento Dinámico DSD con Torre de Control para Supervisores.
+Sistema de Reabastecimiento Dinámico DSD con Tablero de Control para Supervisores.
 Frontend: Streamlit | Arquitectura: Doble Perfil (Tienda / Supervisión de Red).
 """
 from datetime import datetime
@@ -12,7 +12,7 @@ from engine import ReplenishmentEngine
 
 # ----------------- CONFIGURACIÓN DE PÁGINA -----------------
 st.set_page_config(
-    page_title="Portal DSD & Torre de Control",
+    page_title="Portal proveedores directos",
     page_icon="📦",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -147,7 +147,7 @@ if st.sidebar.button("🔄 Recalcular Memoria"):
 # ----------------- ESTRUCTURA PRINCIPAL POR PESTAÑAS -----------------
 tab_tienda, tab_control_tower = st.tabs([
     "🏪 Operación Tienda (Encargado)", 
-    "🌐 Torre de Control (Supervisión de Red)"
+    "🌐 Operaciones (Category manager y Coordinadores)"
 ])
 
 
@@ -237,10 +237,10 @@ with tab_tienda:
 
 
 # =====================================================================
-# PESTAÑA 2: TORRE DE CONTROL (SUPERVISIÓN DE RED COMPLETA)
+# PESTAÑA 2: SUPERVISIÓN DE RED COMPLETA
 # =====================================================================
 with tab_control_tower:
-    st.title("🌐 Torre de Control de Reabastecimiento DSD")
+    st.title("🌐 operaciones (Category manager y Coordinadores regionales)")
     st.caption("Visión consolidada multi-tienda para Category Managers y Dirección de Operaciones")
 
     # Selector de Proveedor Global para análisis
@@ -258,7 +258,7 @@ with tab_control_tower:
 
     m1.metric("Tiendas Auditadas", tiendas_totales)
     m2.metric("Demanda Total de la Red", f"{total_piezas_red:,} pzas")
-    m3.metric("Tiendas en Riesgo / Quiebre", tiendas_con_quiebre, delta=f"-{tiendas_con_quiebre}" if tiendas_con_quiebre > 0 else "0", delta_color="inverse")
+    m3.metric("Tiendas con inventario en déficit", tiendas_con_quiebre, delta=f"-{tiendas_con_quiebre}" if tiendas_con_quiebre > 0 else "0", delta_color="inverse")
     m4.metric("Nivel de Servicio de Red", f"{pct_salud}%")
 
     st.markdown("---")
