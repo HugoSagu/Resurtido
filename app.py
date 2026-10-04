@@ -42,9 +42,28 @@ def load_and_compute_pipeline(mes_objetivo: int) -> pd.DataFrame:
 
     df_calculado = engine.execute_replenishment(master, mes_objetivo=mes_objetivo)
 
-    nombres_tiendas = df_ventas[["Establecimiento", "Nombre Establecimiento"]].drop_duplicates()
+# 7. Asignar Nombres de Establecimiento desde Ventas de forma segura
+    nombres_tiendas = df_ventas[["Establecimiento", "Nombre Establecimiento"]].drop_duplicates().copy()
+    
+    # Des-categorizar explícitamente a texto para evitar el bloqueo de Pandas
+    nombres_tiendas["Nombre Establecimiento"] = nombres_tiendas["Nombre Establecimiento"].astype(str).str.strip()
+
+    # Si la columna ya existía en df_calculado, la eliminamos para evitar duplicados _x, _y
+    if "Nombre Establecimiento" in df_calculado.columns:
+        df_calculado = df_calculado.drop(columns=["Nombre Establecimiento"])
+
+    # Fusionar nombres de sucursales
     df_calculado = pd.merge(df_calculado, nombres_tiendas, on="Establecimiento", how="left")
-    df_calculado["Nombre Establecimiento"] = df_calculado["Nombre Establecimiento"].fillna("SUCURSAL " + df_calculado["Establecimiento"].astype(str))
+
+    # Imputación segura con NumPy (vectorizada y sin restricciones categóricas)
+    col_nombre = df_calculado["Nombre Establecimiento"].astype(str)
+    fallback = "SUCURSAL " + df_calculado["Establecimiento"].astype(str)
+    
+    df_calculado["Nombre Establecimiento"] = np.where(
+        (col_nombre.isna()) | (col_nombre == "nan") | (col_nombre == "None") | (col_nombre == ""),
+        fallback,
+        col_nombre
+    )
 
     return df_calculado
 
