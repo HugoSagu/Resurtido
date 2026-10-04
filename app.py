@@ -250,7 +250,7 @@ else:
     st.success(f"Listo para emitir orden: **{skus_finales} productos** sumando **{piezas_finales:,} piezas**.")
 
     archivo_csv = orden_final.to_csv(index=False).encode("utf-8")
-    
+
     st.download_button(
         label="📥 Descargar Orden DSD a Proveedor (.CSV)",
         data=archivo_csv,
