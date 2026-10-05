@@ -1,12 +1,14 @@
 """
-Sistema de Reabastecimiento Dinámico DSD con Explicabilidad y Torre de Control.
-Branding: UPPER by Canelo Energy | Frontend: Streamlit.
+Sistema de Reabastecimiento Dinámico DSD con Explicabilidad Gráfica y Branding Upper.
+Frontend: Streamlit + Plotly | Identidad: UPPER by Canelo Energy.
 """
 from datetime import datetime
 from pathlib import Path
+import base64
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 from engine import ReplenishmentEngine
 
 # ----------------- CONFIGURACIÓN DE PÁGINA -----------------
@@ -17,138 +19,154 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ----------------- ESTILOS PERSONALIZADOS (UPPER BRANDING) -----------------
-st.markdown("""
+# ----------------- DETECCIÓN DE ARCHIVOS E IMÁGENES -----------------
+BASE_DIR = Path(__file__).resolve().parent
+
+# Buscar logo PNG
+logo_files = list(BASE_DIR.glob("*.png"))
+LOGO_PATH = BASE_DIR / "logo.png" if (BASE_DIR / "logo.png").exists() else (logo_files[0] if logo_files else None)
+
+# Buscar fondo WEBP
+bg_files = list(BASE_DIR.glob("*.webp"))
+BG_PATH = BASE_DIR / "fondo.webp" if (BASE_DIR / "fondo.webp").exists() else (bg_files[0] if bg_files else None)
+
+def get_base64_encoded_image(image_path: Path) -> str:
+    """Codifica una imagen local a base64 para inyectar en CSS de fondo."""
+    if image_path and image_path.exists():
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode("utf-8")
+    return ""
+
+bg_base64 = get_base64_encoded_image(BG_PATH)
+
+# Estilo de fondo condicional
+bg_css_rule = f"""
+    .stApp {{
+        background: linear-gradient(rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.93)), 
+                    url("data:image/webp;base64,{bg_base64}") no-repeat center center fixed;
+        background-size: cover;
+    }}
+""" if bg_base64 else """
+    .stApp {
+        background-color: #F8F9FA;
+    }
+"""
+
+# ----------------- ESTILOS UPPER ENERGY (CSS) -----------------
+st.markdown(f"""
 <style>
-    /* Importar fuente moderna y limpia */
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
 
-    html, body, [class*="css"] {
+    html, body, [class*="css"] {{
         font-family: 'Montserrat', sans-serif;
-    }
+    }}
 
-    /* Colores Principales Upper */
-    :root {
+    {bg_css_rule}
+
+    :root {{
         --upper-red: #E51A24;
         --upper-red-hover: #C4121B;
         --upper-dark: #121212;
-        --upper-gray-bg: #F8F9FA;
         --upper-card-border: #E5E7EB;
-    }
+    }}
 
-    /* Barra Superior / Header decorativo */
-    .upper-header {
+    /* Header Superior */
+    .upper-header {{
         background: linear-gradient(90deg, #111111 0%, #1F1F1F 70%, #E51A24 100%);
-        padding: 24px 30px;
+        padding: 20px 30px;
         border-radius: 12px;
         color: #FFFFFF;
         margin-bottom: 25px;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-    }
-    .upper-header h1 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }}
+    .upper-header h1 {{
         font-weight: 900;
         letter-spacing: 1.5px;
         color: #FFFFFF !important;
         margin: 0;
-        font-size: 2.2rem;
-    }
-    .upper-header span {
+        font-size: 2.1rem;
+    }}
+    .upper-header span {{
         color: #E51A24;
-    }
-    .upper-header p {
+    }}
+    .upper-header p {{
         color: #CCCCCC;
-        margin-top: 6px;
-        font-size: 0.95rem;
+        margin-top: 5px;
+        font-size: 0.9rem;
         margin-bottom: 0;
-    }
+    }}
 
-    /* Tarjetas de Métricas (KPI Cards) */
-    div[data-testid="stMetric"] {
-        background-color: #FFFFFF;
+    /* Tarjetas de Métricas */
+    div[data-testid="stMetric"] {{
+        background-color: rgba(255, 255, 255, 0.95);
         border: 1px solid var(--upper-card-border);
         border-left: 5px solid var(--upper-red);
         border-radius: 10px;
         padding: 15px 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    div[data-testid="stMetric"]:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 16px rgba(229, 26, 36, 0.12);
-    }
-    div[data-testid="stMetricLabel"] p {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease;
+    }}
+    div[data-testid="stMetric"]:hover {{
+        transform: translateY(-2px);
+    }}
+    div[data-testid="stMetricLabel"] p {{
         font-weight: 700 !important;
         font-size: 0.85rem !important;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #555555 !important;
-    }
-    div[data-testid="stMetricValue"] div {
+        color: #444444 !important;
+    }}
+    div[data-testid="stMetricValue"] div {{
         color: #111111 !important;
         font-weight: 800 !important;
-    }
+    }}
 
-    /* Botón de Descarga / Acción Primaria */
-    .stDownloadButton > button {
+    /* Botón de Descarga */
+    .stDownloadButton > button {{
         background-color: var(--upper-red) !important;
         color: #FFFFFF !important;
         border: none !important;
         border-radius: 8px !important;
         font-weight: 700 !important;
-        font-size: 0.95rem !important;
         letter-spacing: 0.5px !important;
-        padding: 10px 24px !important;
+        padding: 12px 24px !important;
         box-shadow: 0 4px 12px rgba(229, 26, 36, 0.3) !important;
         transition: all 0.2s ease !important;
-    }
-    .stDownloadButton > button:hover {
+    }}
+    .stDownloadButton > button:hover {{
         background-color: var(--upper-red-hover) !important;
-        box-shadow: 0 6px 18px rgba(229, 26, 36, 0.45) !important;
         transform: translateY(-1px);
-    }
+    }}
 
-    /* Pestañas (Tabs) Estilo Upper */
-    .stTabs [data-baseweb="tab-list"] {
+    /* Pestañas (Tabs) */
+    .stTabs [data-baseweb="tab-list"] {{
         gap: 8px;
         border-bottom: 2px solid #E5E7EB;
-    }
-    .stTabs [data-baseweb="tab"] {
+    }}
+    .stTabs [data-baseweb="tab"] {{
         font-weight: 700;
         font-size: 1rem;
         padding: 10px 20px;
         color: #555555;
-        border-radius: 6px 6px 0 0;
-    }
-    .stTabs [aria-selected="true"] {
+    }}
+    .stTabs [aria-selected="true"] {{
         color: var(--upper-red) !important;
         border-bottom: 3px solid var(--upper-red) !important;
-        background-color: transparent !important;
-    }
+    }}
 
-    /* Sidebar Estilizada */
-    [data-testid="stSidebar"] {
-        background-color: #FAFAFA;
+    /* Sidebar */
+    [data-testid="stSidebar"] {{
+        background-color: rgba(250, 250, 250, 0.95);
         border-right: 1px solid #E5E7EB;
-    }
-
-    /* Cajas de Diagnóstico / Alertas */
-    .stAlert {
-        border-radius: 8px;
-        border-left: 5px solid var(--upper-red) !important;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 
 
-# ----------------- INICIALIZAR MOTOR Y RUTAS -----------------
-engine = ReplenishmentEngine(
-    lead_time_days=3,
-    review_frequency_days=7,
-    extra_coverage_days=2,
-    min_cv=0.50
-)
-
-BASE_DIR = Path(__file__).resolve().parent
+# ----------------- MOTOR Y BASES DE DATOS -----------------
+engine = ReplenishmentEngine(lead_time_days=3, review_frequency_days=7, extra_coverage_days=2, min_cv=0.50)
 
 VENTAS_PATH = BASE_DIR / "ventas.parquet"
 CATALOGO_PATH = BASE_DIR / "catalogo.parquet"
@@ -156,16 +174,14 @@ EXISTENCIAS_PATH = BASE_DIR / "existencias.parquet"
 ESTACIONALIDAD_PATH = BASE_DIR / "estacionalidad.parquet"
 
 ARCHIVOS_REQUERIDOS = [VENTAS_PATH, CATALOGO_PATH, EXISTENCIAS_PATH, ESTACIONALIDAD_PATH]
-
 if not all(p.is_file() for p in ARCHIVOS_REQUERIDOS):
-    st.error("🚨 Faltan bases de datos Parquet en el directorio del proyecto.")
+    st.error("🚨 Faltan bases de datos Parquet en la carpeta del proyecto.")
     st.stop()
 
 
-# ----------------- PIPELINE DE CÁLCULO VECTORIZADO -----------------
+# ----------------- PIPELINE VECTORIZADO -----------------
 @st.cache_data(ttl=None, show_spinner="Calculando reabastecimiento Upper...")
 def load_and_compute_pipeline(mes_objetivo: int) -> pd.DataFrame:
-    # 1. Catálogo Directo
     df_cat = pd.read_parquet(CATALOGO_PATH)
     df_cat["Tipo de proveedor"] = df_cat["Tipo de proveedor"].astype(str).str.strip().str.upper()
     df_cat_dsd = df_cat[df_cat["Tipo de proveedor"] == "DIRECTO"].copy()
@@ -173,45 +189,33 @@ def load_and_compute_pipeline(mes_objetivo: int) -> pd.DataFrame:
     if df_cat_dsd.empty:
         return pd.DataFrame()
 
-    # 2. Existencias (Purga estricta de costos y precios)
     df_exist = pd.read_parquet(EXISTENCIAS_PATH)
     cols_exist = [c for c in ["Establecimiento", "Código Mercancía", "Existencia", "Descripción"] if c in df_exist.columns]
     df_exist = df_exist[cols_exist].copy()
 
-    # 3. Factor Estacional
     df_estac = pd.read_parquet(ESTACIONALIDAD_PATH)
     df_estac_mes = df_estac[df_estac["Mes"] == mes_objetivo][["Nivel 2", "Factor_Estacional"]].copy()
 
     df_cat_estac = pd.merge(df_cat_dsd, df_estac_mes, on="Nivel 2", how="left")
     df_cat_estac["Factor_Estacional"] = df_cat_estac["Factor_Estacional"].fillna(1.0).astype("float32")
 
-    # Cruce con Existencias
     master_base = pd.merge(df_cat_estac, df_exist, on="Código Mercancía", how="inner")
     if master_base.empty:
         return pd.DataFrame()
 
-    # 4. Demanda reciente (60 días)
     df_ventas = pd.read_parquet(VENTAS_PATH)
     demanda_reciente = engine.compute_daily_demand(df_ventas, recent_days_window=60)
 
-    master = pd.merge(
-        master_base,
-        demanda_reciente,
-        on=["Establecimiento", "Código Mercancía"],
-        how="left"
-    )
+    master = pd.merge(master_base, demanda_reciente, on=["Establecimiento", "Código Mercancía"], how="left")
     master["Demanda_Diaria_Base"] = master["Demanda_Diaria_Base"].fillna(0.0).astype("float32")
     master["Sigma_Empirica"] = master["Sigma_Empirica"].fillna(0.0).astype("float32")
 
-    # 5. Pareto ABC
     pareto = engine.compute_pareto(master)
     master = pd.merge(master, pareto, on=["Establecimiento", "Código Mercancía"], how="left")
     master["Clase_ABC"] = master["Clase_ABC"].fillna("C")
 
-    # 6. Motor Min-Max
     df_calculado = engine.execute_replenishment(master, mes_objetivo=mes_objetivo)
 
-    # 7. Asignar Nombres de Tiendas
     nombres_tiendas = df_ventas[["Establecimiento", "Nombre Establecimiento"]].drop_duplicates().copy()
     nombres_tiendas["Nombre Establecimiento"] = nombres_tiendas["Nombre Establecimiento"].astype(str).str.strip()
 
@@ -227,7 +231,6 @@ def load_and_compute_pipeline(mes_objetivo: int) -> pd.DataFrame:
         col_nombres
     )
 
-    # 8. Días de Cobertura
     df_calculado["Dias_Cobertura"] = np.where(
         df_calculado["Demanda_Diaria_Base"] > 0,
         np.round(df_calculado["Existencia"] / df_calculado["Demanda_Diaria_Base"], 1),
@@ -237,13 +240,16 @@ def load_and_compute_pipeline(mes_objetivo: int) -> pd.DataFrame:
     return df_calculado
 
 
-# ----------------- PARÁMETROS GLOBALES (SIDEBAR) -----------------
-st.sidebar.markdown("""
-<div style="text-align: center; padding-bottom: 15px;">
-    <h2 style="font-weight: 900; color: #111111; margin-bottom: 0;">UPPER<span style="color: #E51A24;">®</span></h2>
-    <p style="font-size: 0.75rem; color: #777777; letter-spacing: 1px; font-weight: 600;">BY CANELO ENERGY</p>
-</div>
-""", unsafe_allow_html=True)
+# ----------------- SIDEBAR CON BRANDING -----------------
+if LOGO_PATH and LOGO_PATH.exists():
+    st.sidebar.image(str(LOGO_PATH), use_container_width=True)
+else:
+    st.sidebar.markdown("""
+    <div style="text-align: center; padding-bottom: 10px;">
+        <h2 style="font-weight: 900; color: #111111; margin-bottom: 0;">UPPER<span style="color: #E51A24;">®</span></h2>
+        <p style="font-size: 0.75rem; color: #777777; letter-spacing: 1px; font-weight: 600;">BY CANELO ENERGY</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Parámetros Generales")
@@ -273,15 +279,16 @@ if st.sidebar.button("🔄 Recalcular Memoria", use_container_width=True):
     st.rerun()
 
 
-# ----------------- HEADER PRINCIPAL UPPER -----------------
+# ----------------- HEADER PRINCIPAL -----------------
 st.markdown("""
 <div class="upper-header">
-    <h1>UPPER<span>.</span> REABASTECIMIENTO DSD</h1>
-    <p>Motor de Control Logístico y Abasto Directo a Tiendas de Conveniencia</p>
+    <div>
+        <h1>UPPER<span>.</span> REABASTECIMIENTO DSD</h1>
+        <p>Motor de Control Logístico y Abasto Directo a Tiendas de Conveniencia</p>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ----------------- PESTAÑAS PRINCIPALES -----------------
 tab_tienda, tab_control_tower = st.tabs([
     "🏪 Operación Tienda", 
     "🌐 Torre de Control de Red"
@@ -289,7 +296,7 @@ tab_tienda, tab_control_tower = st.tabs([
 
 
 # =====================================================================
-# PESTAÑA 1: VISTA DE TIENDA
+# PESTAÑA 1: OPERACIÓN TIENDA
 # =====================================================================
 with tab_tienda:
     st.sidebar.markdown("---")
@@ -299,8 +306,8 @@ with tab_tienda:
     tienda_auth = st.sidebar.selectbox("Sucursal Asignada:", options=tiendas_disponibles, index=0)
     
     df_tienda = df_red[df_red["Nombre Establecimiento"] == tienda_auth].copy()
-    
     proveedores_tienda = sorted(df_tienda["Proveedor"].dropna().unique())
+
     if not proveedores_tienda:
         st.warning("Esta sucursal no registra artículos de proveedores directos.")
     else:
@@ -310,7 +317,7 @@ with tab_tienda:
         st.markdown(f"### Suministro Directo: **{tienda_auth}**")
         st.caption(f"Proveedor: **{proveedor_auth}** | Periodo: **{nombres_meses[mes_sel]}** | Modalidad: **Pieza Suelta**")
 
-        # KPIs con estilo Card
+        # KPIs
         k1, k2, k3, k4 = st.columns(4)
         total_skus = len(df_prov_tienda)
         skus_pedir = int((df_prov_tienda["Unidades_Sugeridas"] > 0).sum())
@@ -325,7 +332,6 @@ with tab_tienda:
         st.markdown("<br>", unsafe_allow_html=True)
 
         # Grilla de Captura
-        st.markdown("#### Captura y Autorización de Pedido")
         cols_ui = [
             "Código Mercancía", "Descripción", "Nivel 2", "Clase_ABC",
             "Existencia", "Dias_Cobertura", "SS", "MIN", "MAX", "Unidades_Sugeridas", "Estado_Inventario"
@@ -367,10 +373,10 @@ with tab_tienda:
                 mime="text/csv"
             )
 
-        # ----------------- EXPLICABILIDAD -----------------
+        # ----------------- EXPLICABILIDAD & GRÁFICA LINEAL -----------------
         st.markdown("---")
         st.markdown("#### 🔍 Auditoría: ¿Por qué me sugiere esta cantidad?")
-        st.caption("Selecciona cualquier producto para ver el desglose en lenguaje natural.")
+        st.caption("Selecciona cualquier producto para ver su simulación de inventario en el tiempo.")
 
         skus_disponibles = df_prov_tienda["Descripción"].unique()
         sku_auditar = st.selectbox("Producto a auditar:", options=skus_disponibles)
@@ -385,7 +391,6 @@ with tab_tienda:
         v_min = float(fila_sku["MIN"])
         v_max = float(fila_sku["MAX"])
         v_sug = int(fila_sku["Unidades_Sugeridas"])
-        v_clase = str(fila_sku["Clase_ABC"])
 
         c_diag1, c_diag2, c_diag3 = st.columns(3)
         c_diag1.metric("Venta Diaria Promedio", f"{v_demanda:.1f} pzas/día")
@@ -393,54 +398,92 @@ with tab_tienda:
         c_diag3.metric("Acción Sugerida", f"+{v_sug} piezas" if v_sug > 0 else "0 piezas (No pedir)")
 
         with st.container():
-            st.info(f"**Radiografía Operativa:** {sku_auditar}")
+            st.info(f"**Diagnóstico Operativo:** {sku_auditar}")
             
-            st.write(f"1. **Ritmo de Venta:** Vendes en promedio **{v_demanda:.1f} piezas al día** (últimos 60 días).")
-            
-            pct_estac = round((v_estac - 1.0) * 100, 1)
-            if pct_estac > 0:
-                st.write(f"2. **Temporada Upper:** 🔥 **Alta demanda.** Incremento del **+{pct_estac}%** en {nombres_meses[mes_sel]}.")
-            elif pct_estac < 0:
-                st.write(f"2. **Temporada Upper:** ❄️ **Baja demanda.** Ajuste estacional de **{pct_estac}%** en {nombres_meses[mes_sel]}.")
-            else:
-                st.write(f"2. **Temporada Upper:** ⚖️ **Demanda neutra.** Comportamiento regular.")
-
-            if v_stock <= 0:
-                st.write("3. **Situación en Tienda:** 🚨 **Agotado (Stockout).** No hay inventario en exhibición.")
-            elif v_cobertura <= 3:
-                st.write(f"3. **Situación en Tienda:** ⚠️ **Riesgo crítico.** Con **{v_stock:.0f} piezas** te quedan solo **{v_cobertura:.1f} días** de venta. El camión tarda 3 días en llegar.")
-            elif v_cobertura <= 10:
-                st.write(f"3. **Situación en Tienda:** 🟡 **Cobertura estándar.** Abasto para **{v_cobertura:.1f} días**, entrarías a usar tu reserva.")
-            else:
-                st.write(f"3. **Situación en Tienda:** 🟢 **Stock holgado.** Inventario suficiente para **{v_cobertura:.1f} días**.")
-
             if v_sug > 0:
-                st.success(
-                    f"📌 **Conclusión:** Se solicitan **{v_sug} piezas** porque el stock actual ({v_stock:.0f}) está por debajo del Punto Mínimo ({v_min:.0f}). "
-                    f"Con este pedido se alcanza el Punto Máximo ({v_max:.0f}), cubriendo 10 días de ciclo y protegiendo tu reserva de seguridad de {v_ss:.0f} piezas."
+                st.write(
+                    f"• **Gatillo de Compra Activado:** Tu inventario físico ({v_stock:.0f} pzas) cayó al nivel de reorden (≤ {v_min:.0f} Mínimo).\n"
+                    f"• **Demanda del Ciclo:** Vendes **{v_demanda:.1f} pzas/día**. Durante los 3 días de entrega más los 7 días hasta la siguiente visita, consumirás ~{v_demanda*10:.0f} piezas.\n"
+                    f"• **Propósito del Pedido:** Solicitar **{v_sug} piezas** te lleva a la capacidad Máxima ({v_max:.0f} pzas), garantizando abasto total y preservando tu colchón de seguridad de {v_ss:.0f} piezas."
                 )
             else:
-                st.success(
-                    f"📌 **Conclusión:** No se solicita producto hoy porque el stock actual ({v_stock:.0f} pzas) supera el Punto Mínimo ({v_min:.0f} pzas). "
-                    f"Pedir más producto generaría sobrealmacenamiento innecesario."
+                st.write(
+                    f"• **Stock Suficiente:** Cuentas con {v_stock:.0f} piezas (cobertura para {v_cobertura:.1f} días).\n"
+                    f"• Como tu stock está por encima del Mínimo ({v_min:.0f} pzas), **no se requiere compra hoy**. Pedir ahora saturaría la tienda."
                 )
 
-        st.markdown("##### 📊 Termómetro de Niveles Físicos")
-        df_termo = pd.DataFrame({
-            "Nivel": [
-                "1. Stock Físico",
-                "2. Seguridad (SS)",
-                "3. Punto Mínimo",
-                "4. Capacidad Máxima",
-                "5. Post-Pedido"
-            ],
-            "Piezas": [v_stock, v_ss, v_min, v_max, v_stock + v_sug]
-        })
-        st.bar_chart(data=df_termo.set_index("Nivel"), horizontal=True, color="#E51A24")
+        # ----------------- GRÁFICA LINEAL DE INVENTARIO (PLOTLY) -----------------
+        st.markdown("##### 📈 Proyección de Inventario a 14 Días (Modelo Dinámico)")
+
+        dias_horizonte = np.arange(0, 15)  # Días 0 al 14
+        lead_time = 3
+
+        # 1. Proyección sin pedido (descenso natural)
+        stock_sin_pedido = np.maximum(0, v_stock - (dias_horizonte * v_demanda))
+
+        # 2. Proyección con pedido (recibe pedido en Día 3 = LT)
+        stock_con_pedido = []
+        curr = v_stock
+        for d in dias_horizonte:
+            if d == lead_time and v_sug > 0:
+                curr += v_sug  # Salto de inventario al recibir camión
+            curr = max(0, curr - v_demanda)
+            stock_con_pedido.append(curr)
+
+        fig = go.Figure()
+
+        # Líneas de Referencia Logísticas
+        fig.add_trace(go.Scatter(
+            x=[0, 14], y=[v_max, v_max],
+            mode="lines", name="Punto Máximo (MAX)",
+            line=dict(color="#111111", width=2, dash="dash")
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=[0, 14], y=[v_min, v_min],
+            mode="lines", name="Punto Mínimo (Gatillo MIN)",
+            line=dict(color="#F59E0B", width=2, dash="dot")
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=[0, 14], y=[v_ss, v_ss],
+            mode="lines", name="Seguridad (SS)",
+            line=dict(color="#9CA3AF", width=1.5, dash="dot")
+        ))
+
+        # Curva con Pedido (Rojo Upper)
+        if v_sug > 0:
+            fig.add_trace(go.Scatter(
+                x=dias_horizonte, y=stock_con_pedido,
+                mode="lines+markers", name=f"Proyección con Pedido (+{v_sug} pzas)",
+                line=dict(color="#E51A24", width=3.5),
+                marker=dict(size=6)
+            ))
+
+        # Curva Sin Pedido (Agotamiento)
+        fig.add_trace(go.Scatter(
+            x=dias_horizonte, y=stock_sin_pedido,
+            mode="lines", name="Trayectoria sin Pedido",
+            line=dict(color="#EF4444" if v_sug > 0 else "#2563EB", width=2, dash="dashdot")
+        ))
+
+        fig.update_layout(
+            title=f"Simulación de Consumo y Reabastecimiento: {sku_auditar}",
+            xaxis_title="Días a partir de hoy",
+            yaxis_title="Piezas Físicas",
+            hovermode="x unified",
+            plot_bgcolor="rgba(255,255,255,0.8)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin=dict(l=20, r=20, t=60, b=20),
+            height=420
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
 
 
 # =====================================================================
-# PESTAÑA 2: TORRE DE CONTROL (SUPERVISIÓN)
+# PESTAÑA 2: TORRE DE CONTROL
 # =====================================================================
 with tab_control_tower:
     st.markdown("### 🌐 Torre de Control de Red")
