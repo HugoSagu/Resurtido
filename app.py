@@ -1,7 +1,3 @@
-"""
-Sistema de Reabastecimiento Dinámico DSD con Explicabilidad Gráfica y Branding Upper.
-Frontend: Streamlit + Plotly | Identidad: UPPER by Canelo Energy.
-"""
 from datetime import datetime
 from pathlib import Path
 import base64
@@ -13,8 +9,8 @@ from engine import ReplenishmentEngine
 
 # ----------------- CONFIGURACIÓN DE PÁGINA -----------------
 st.set_page_config(
-    page_title="UPPER | Reabastecimiento DSD",
-    page_icon="⚡",
+    page_title="UPPER | Pedido sugerido - Proveedores directos",
+    page_icon="🚩",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -42,7 +38,7 @@ bg_base64 = get_base64_encoded_image(BG_PATH)
 # Estilo de fondo condicional
 bg_css_rule = f"""
     .stApp {{
-        background: linear-gradient(rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.93)), 
+        background: linear-gradient(rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.78)), 
                     url("data:image/webp;base64,{bg_base64}") no-repeat center center fixed;
         background-size: cover;
     }}
@@ -240,19 +236,31 @@ def load_and_compute_pipeline(mes_objetivo: int) -> pd.DataFrame:
     return df_calculado
 
 
-# ----------------- SIDEBAR CON BRANDING -----------------
+# ----------------- SIDEBAR -----------------
 if LOGO_PATH and LOGO_PATH.exists():
-    st.sidebar.image(str(LOGO_PATH), use_container_width=True)
-else:
-    st.sidebar.markdown("""
-    <div style="text-align: center; padding-bottom: 10px;">
-        <h2 style="font-weight: 900; color: #111111; margin-bottom: 0;">UPPER<span style="color: #E51A24;">®</span></h2>
-        <p style="font-size: 0.75rem; color: #777777; letter-spacing: 1px; font-weight: 600;">BY CANELO ENERGY</p>
+    logo_base64 = get_base64_encoded_image(LOGO_PATH)
+    st.sidebar.markdown(f"""
+    <div style="
+        background-color: #E51A24; 
+        padding: 18px 22px; 
+        border-radius: 14px; 
+        text-align: center; 
+        box-shadow: 0 6px 18px rgba(229, 26, 36, 0.35); 
+        margin-bottom: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    ">
+        <img src="data:image/png;base64,{logo_base64}" style="max-width: 90%; max-height: 85px; object-fit: contain;">
     </div>
     """, unsafe_allow_html=True)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("Parámetros Generales")
+else:
+    st.sidebar.markdown("""
+    <div style="background-color: #E51A24; padding: 18px; border-radius: 14px; text-align: center; margin-bottom: 22px;">
+        <h2 style="font-weight: 900; color: #FFFFFF; margin: 0; letter-spacing: 1px;">UPPER<span style="color: #111111;">®</span></h2>
+        <p style="font-size: 0.75rem; color: #F4F4F4; letter-spacing: 1.5px; font-weight: 700; margin: 0;">BY CANELO ENERGY</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 mes_actual = datetime.now().month
 nombres_meses = {
@@ -279,19 +287,19 @@ if st.sidebar.button("🔄 Recalcular Memoria", use_container_width=True):
     st.rerun()
 
 
-# ----------------- HEADER PRINCIPAL -----------------
+# ----------------- PRINCIPAL -----------------
 st.markdown("""
 <div class="upper-header">
     <div>
-        <h1>UPPER<span>.</span> REABASTECIMIENTO DSD</h1>
-        <p>Motor de Control Logístico y Abasto Directo a Tiendas de Conveniencia</p>
+        <h1>UPPER<span>.</span> Pedido sugerido - Proveedores directos</h1>
+        <p>Control de Abasto Directo a Tiendas de Conveniencia</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 tab_tienda, tab_control_tower = st.tabs([
     "🏪 Operación Tienda", 
-    "🌐 Torre de Control de Red"
+    "🌐 Reporte Category manager y Coordinadores de zona"
 ])
 
 
@@ -375,7 +383,7 @@ with tab_tienda:
 
         # ----------------- EXPLICABILIDAD & GRÁFICA LINEAL -----------------
         st.markdown("---")
-        st.markdown("#### 🔍 Auditoría: ¿Por qué me sugiere esta cantidad?")
+        st.markdown("#### 🔍 ¿Por qué me sugiere esta cantidad?")
         st.caption("Selecciona cualquier producto para ver su simulación de inventario en el tiempo.")
 
         skus_disponibles = df_prov_tienda["Descripción"].unique()
@@ -486,8 +494,8 @@ with tab_tienda:
 # PESTAÑA 2: TORRE DE CONTROL
 # =====================================================================
 with tab_control_tower:
-    st.markdown("### 🌐 Torre de Control de Red")
-    st.caption("Visión macro multi-sucursal para Category Managers y Supervisión")
+    st.markdown("### 🌐 Reporte Category manager y Coordinadores de Zona")
+    st.caption("Reporte multi-sucursal")
 
     todos_proveedores = sorted(df_red["Proveedor"].dropna().unique())
     prov_global = st.selectbox("Seleccione Proveedor para Auditoría de Red:", options=todos_proveedores, key="prov_global")
@@ -500,7 +508,7 @@ with tab_control_tower:
     tiendas_con_quiebre = df_prov_red[df_prov_red["Estado_Inventario"].isin(["AGOTADO (Stockout)", "CRÍTICO (Bajo SS)"])]["Nombre Establecimiento"].nunique()
     pct_salud = round((1 - (tiendas_con_quiebre / tiendas_totales if tiendas_totales > 0 else 0)) * 100, 1)
 
-    m1.metric("Tiendas de la Red", tiendas_totales)
+    m1.metric("Tiendas totales", tiendas_totales)
     m2.metric("Demanda Total Cadena", f"{total_piezas_red:,} pzas")
     m3.metric("Tiendas en Riesgo", tiendas_con_quiebre, delta=f"-{tiendas_con_quiebre}" if tiendas_con_quiebre > 0 else "0", delta_color="inverse")
     m4.metric("Nivel de Servicio Red", f"{pct_salud}%")
@@ -509,7 +517,7 @@ with tab_control_tower:
     col_izq, col_der = st.columns([1, 1])
 
     with col_izq:
-        st.markdown("#### 🚨 Semáforo de Riesgo por Tienda")
+        st.markdown("#### Riesgo por Tienda")
         resumen_tiendas = df_prov_red.groupby("Nombre Establecimiento").agg(
             Total_SKUs=("Código Mercancía", "count"),
             SKUs_en_Riesgo=("Estado_Inventario", lambda x: x.isin(["AGOTADO (Stockout)", "CRÍTICO (Bajo SS)"]).sum()),
@@ -531,7 +539,7 @@ with tab_control_tower:
         )
 
     with col_der:
-        st.markdown("#### 📦 Necesidad Consolidada por SKU")
+        st.markdown("#### Demanda Consolidada por SKU")
         resumen_skus = df_prov_red.groupby(["Código Mercancía", "Descripción"]).agg(
             Tiendas_Afectadas=("Nombre Establecimiento", "nunique"),
             Existencia_Cadena=("Existencia", "sum"),
